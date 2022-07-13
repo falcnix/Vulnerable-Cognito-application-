@@ -16,4 +16,4 @@ A vulnerable Cognito application is a web application that can be used to practi
     
 ## Usage/Examples
 
-* Refer to Appsecco's blog on various cognito misconfigurations
+* Refer to Appsecco's blog on various cognito misconfigurations - https://blog.appsecco.com/exploiting-weak-configurations-in-amazon-cognito-in-aws-471ce761963
