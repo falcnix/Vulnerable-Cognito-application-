@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Upload web page</title>
+</head>
+<body>
+    <script src="./script/jquery.min.js"></script>  
+    <script src="./script/aws-sdk-2.487.0.min.js"></script>
+    <script src="./script/aws-cognito-sdk.min.js"></script>
+    <script src="./script/amazon-cognito-identity.min.js"></script>
+    
+    </br>
+    <input id="fileUpload" type="file" /></br>
+    <br>
+    <input id="uploadS3ObjectsButton" type="button" value="upload" onclick="s3upload()">
+
+</br></br>
+    <input id="clearLogsButton" type="button" value="Clear Logs" onclick="clearLogs()">
+    </br></br>
+    <div id="loader" class="loader" style="display:none"></div>
+    </br></br>
+    <div id="log"></div>
+    
+
+    <script>
+
+        //=============== AWS IDs ===============
+        var userPoolId = 'us-east-2_tTDediHHI';
+        var clientId = '1mhis81l3gsr9chd8tvdc2n4gs';
+        var region = 'us-east-2';
+        var identityPoolId = 'us-east-2:5d646adc-b1ef-4193-aa09-86c5e9cb1cc8';
+        var bucketName = 'saqeebtestbucket';
+        var bucketRegion = 'us-east-2';
+        var IdentityPoolId = 'us-east-2:5d646adc-b1ef-4193-aa09-86c5e9cb1cc8';
+        //=============== AWS IDs ===============
+
+        var cognitoUser;
+        var idToken;
+        var userPool;
+        
+        var poolData = { 
+            UserPoolId : userPoolId,
+            ClientId : clientId
+        };
+        
+        getCurrentLoggedInSession();
+
+        
+        function clearLogs(){
+            $('#log').empty();
+        }
+
+        /*
+        Starting point for user logout flow
+        */
+        function logOut(){
+            if (cognitoUser != null) {
+
+                $("#loader").show();
+                cognitoUser.signOut();
+                switchToLogInView();
+                logMessage('Logged out!');
+                $("#loader").hide();
+            }
+        }
+
+        /*
+        Starting point for user login flow with input validation
+        */
+        
+        /*
+        Starting point for AWS List S3 Objects flow with input validation
+        */
+
+
+              function s3upload() {  
+                var files = document.getElementById('fileUpload').files;
+                if (files) 
+                {
+                    var file = files[0];
+                    var fileName = file.name;
+                    var bucketRegion = "us-east-2";
+                    var filePath = 'my-first-bucket-path/' + fileName;
+                    var fileUrl = 'https://' + bucketRegion + '.amazonaws.com/my-first-bucket/' +  filePath;
+                    var s3 = new AWS.S3();
+ var upload = new AWS.S3.ManagedUpload({
+    params: {
+      Bucket: bucketName,
+      Key: fileName,
+      Body: file
+    }
+  });
+
+   var promise = upload.promise();
+
+  promise.then(
+    function(data) {
+      alert("Successfully uploaded file.");
+    },
+    function(err) {
+      return alert("There was an error uploading your photo: ", err.message);
+    }
+  )
+                }
+      }
+
+        /*
+        This method will get temporary credentials for AWS using the IdentityPoolId and the Id Token recieved from AWS Cognito authentication provider.
+        */
+        function getCognitoIdentityCredentials(){
+            AWS.config.region = region;
+
+            var loginMap = {};
+            loginMap['cognito-idp.' + region + '.amazonaws.com/' + userPoolId] = idToken;
+
+            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: identityPoolId,
+                Logins: loginMap
+            });
+            var s3 = new AWS.S3({
+                apiVersion: '2006-03-01',
+                params: {Bucket: bucketName}
+        })
+            AWS.config.credentials.clearCachedId();
+
+            AWS.config.credentials.get(function(err) {
+                if (err){
+                    logMessage(err.message);
+                }
+                else {
+                    logMessage('As authenticated user you can upload the files to the buckets');
+                }
+
+                $("#loader").hide();
+            });
+        }
+
+        /*
+        This method will use AWS S3 SDK to get a list of S3 bucket object.
+        Before using this method, AWS Credentials must be set in AWS config.
+        */
+        function getAWSS3BucketObjects(){            
+            var s3 = new AWS.S3();
+
+            var params = {
+                Bucket: $("#bucketNameInput").val()
+            };
+
+            s3.listObjects(params, function(err, data) {
+                if (err) logMessage(err.message);
+                else{
+                    logMessage('');
+                    logMessage('====== S3 Bucket Objects ======');
+                    data.Contents.forEach(element => {
+                        logMessage(element.Key);
+                    });
+                    logMessage('');
+                }
+
+                $("#loader").hide();
+            });
+        }
+    
+      
+        /*
+        If user has logged in before, get the previous session so user doesn't need to log in again.
+        */
+        function getCurrentLoggedInSession(){
+
+            $("#loader").show();
+            userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+            cognitoUser = userPool.getCurrentUser();
+
+            if(cognitoUser != null){
+                cognitoUser.getSession(function(err, session) {
+                    if (err) {
+                        logMessage(err.message);
+                    }else{
+                        logMessage('Session found! Logged in.');
+                        idToken = session.getIdToken().getJwtToken();
+                        getCognitoIdentityCredentials();
+                    }
+                    $("#loader").hide();
+                });
+            }else{
+                logMessage('Session expired. Please log in again.');
+                $("#loader").hide();
+            }
+
+        }
+
+        /*
+        This is a logging method that will be used throught the application
+        */
+        function logMessage(message){
+            $('#log').append(message + '</br>');
+        }
+    </script>
+
+</body>
+</html>
